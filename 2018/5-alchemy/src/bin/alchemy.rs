@@ -7,17 +7,23 @@ use itertools::Itertools;
 fn collapse(xs: &Vec<char>) -> Vec<char> {
     let len = xs.len();
     let mut ret = Vec::<char>::new();
+    let mut i = 0;
+    let mut j = 1;
 
-    for (i, j) in itertools::zip(0.., 1..len) {
+    while j < len {
         let c = xs[i];
         let d = xs[j];
 
         if c != d && c.to_ascii_lowercase() == d.to_ascii_lowercase() {
-            ret.extend_from_slice(&xs[j+1..]);
-            return ret;
+            // match
+            i += 1;
+            j += 1;
         } else {
             ret.push(c);
         }
+
+        i += 1;
+        j += 1;
     }
 
     ret.push(*xs.last().unwrap());
@@ -47,7 +53,10 @@ fn main() {
     let alphabet = (0..26).map(|x| (x + 'a' as u8) as char);
 
     let minformula = 
-    alphabet.map(|c| polymer.clone().into_iter().filter(|x| x.to_ascii_lowercase() != c).collect())
+    alphabet.map(|c| polymer.clone()
+                            .into_iter()
+                            .filter(|x| x.to_ascii_lowercase() != c)
+                            .collect())
             .map(reduce_polymer)
             .map(|x| x.len())
             .min()
