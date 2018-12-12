@@ -1,0 +1,6 @@
+[package]
+name = "subterranean"
+version = "0.1.0"
+
+[dependencies]
+itertools = "*"
