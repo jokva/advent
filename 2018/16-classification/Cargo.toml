@@ -1,0 +1,7 @@
+[package]
+name = "classification"
+version = "0.1.0"
+
+[dependencies]
+regex = "*"
+itertools = "*"
