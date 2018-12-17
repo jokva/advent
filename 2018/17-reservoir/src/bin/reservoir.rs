@@ -6,7 +6,7 @@ extern crate regex;
 
 type Reservoir = Vec<Vec<char>>;
 
-fn build_model(input: Vec<String>) -> (Reservoir, usize) {
+fn build_model(input: Vec<String>) -> (Reservoir, usize, usize) {
     let expr = r"(\w)=(\d+), \w=(\d+)\.\.(\d+)";
     let re = regex::Regex::new(expr).unwrap();
 
@@ -46,18 +46,24 @@ fn build_model(input: Vec<String>) -> (Reservoir, usize) {
                    - 1
                    ;
 
-    let mut reservoir = vec![vec!['.'; maxx - minx]; maxy];
+    let miny = clay.iter()
+                   .map(|x| x.clone())
+                   .map(|x| x.1.min().unwrap())
+                   .min()
+                   .unwrap()
+                   ;
+
+    let mut reservoir = vec![vec!['.'; maxx - minx]; maxy - miny];
 
     for (xs, ys) in clay {
         for x in xs {
             for y in ys.clone() {
-                reservoir[y][x - minx] = '#';
+                reservoir[y - miny][x - minx] = '#';
             }
         }
     }
 
-    reservoir[0][500 - minx] = '+';
-    (reservoir, minx)
+    (reservoir, minx, miny)
 }
 
 fn drip(mut res: Reservoir,
@@ -65,28 +71,34 @@ fn drip(mut res: Reservoir,
         srcy: usize)
     -> Reservoir {
 
-    print(&res);
-    if srcy == res.len()      { return res }
+    if srcy == res.len() { return res }
+
+    /* clay, or already set */
     if res[srcy][srcx] == '#' { return res }
     if res[srcy][srcx] == '|' { return res }
+    if res[srcy][srcx] == '~' { return res }
 
-    res[srcy][srcx] = '|';
+    /* water goes through here */
+    if res[srcy][srcx] == '.' {
+        res[srcy][srcx] = '|';
+    }
 
-    /* flow down first */
     let nexty = srcy + 1;
+    /* flow down first */
     res = drip(res, srcx, nexty);
 
     /* at bottom - exit */
     if nexty == res.len() { return res }
 
     match res[nexty][srcx] {
-        '.' => (),
+        '.' | '|' => (),
         '#' => {
-            /* hit clay, spray to the sides */
+            /* hit clay, flow to the sides */
             res = drip(res, srcx-1, srcy);
             res = drip(res, srcx+1, srcy);
+
          },
-        '|' => {
+        '~' => {
             if (nexty .. res.len())
                 .map(|y| res[y][srcx])
                 .filter(|&c| c == '#')
@@ -102,6 +114,46 @@ fn drip(mut res: Reservoir,
          x  => panic!("Unknown cell {}", x),
     }
 
+    /* 
+     * if everything in this row is horizontal water (|), and between two walls
+     * of clay, then change them all to ~
+     */
+    let left = (0 .. srcx)
+                .rev()
+                .map(|i| res[srcy][i])
+                .take_while(|&c| c != '#')
+                .collect::<Vec<_>>()
+                ;
+
+    if left.len() == srcx {
+        /* 
+         * wasn't even a # there, so stream is pushed all the way to left edge
+         * before pouring down, and should not be filled
+         */
+        return res
+    }
+
+    let right = (srcx .. res[0].len())
+                    .map(|i| res[srcy][i])
+                    .take_while(|&c| c != '#')
+                    .collect::<Vec<_>>()
+                    ;
+
+    if right.len() == res[0].len() - (srcx + 1) {
+        return res
+    }
+
+    if left.iter().all(|&c| c == '|') && right.iter().all(|&c| c == '|') {
+        for i in (0 .. srcx).rev() {
+            if res[srcy][i] == '#' { break }
+            res[srcy][i] = '~';
+        }
+
+        for i in srcx .. res[0].len() {
+            if res[srcy][i] == '#' { break }
+            res[srcy][i] = '~';
+        }
+    }
 
     res
 }
@@ -123,7 +175,23 @@ fn main() {
         .collect::<Vec<_>>()
         ;
 
-    let (model, offset) = build_model(input);
+    let (model, offset, cut) = build_model(input);
 
-    let step = drip(model, 500 - offset, 1);
+    let step = drip(model, 500 - offset, 0);
+    print(&step);
+    let pooled_water = step.iter()
+                    .flat_map(|x| x)
+                    .filter(|&&c| c == '~')
+                    .count()
+                    ;
+
+    let water = step.iter()
+                    .flat_map(|x| x)
+                    .filter(|&&c| c == '|')
+                    .count()
+                    + pooled_water
+                    ;
+
+
+    println!("Water rests in {} cells, can reach {}", pooled_water, water);
 }
