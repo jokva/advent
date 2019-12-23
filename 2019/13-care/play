@@ -1,0 +1,37 @@
+#!/usr/bin/env expect
+
+spawn bash -c \
+"./intcode input.txt play | awk 'NR%3 {printf(\"%s,\", \$0); next} {print \$0}'"
+
+while {1} {
+    expect {
+        eof {
+            send_user "Final score: $score\r\n"
+            break
+        }
+
+        -re {(\d+),\d+,3\r} {
+            set paddlex $expect_out(1,string)
+        }
+        -re {(\d+),\d+,4\r} {
+            set ballx $expect_out(1,string)
+        }
+        -re {-1,0,(\d+)\r} {
+            set score $expect_out(1,string)
+        }
+
+        "input:,," {
+            if { $paddlex == $ballx } {
+                send -- 0\r
+            }
+            if { $ballx > $paddlex } {
+                send -- 1\r
+            }
+            if { $ballx < $paddlex } {
+                send -- -1\r
+            }
+        }
+    }
+}
+
+close $spawn_id
